@@ -1,0 +1,12 @@
+[package]
+name = "polyforge-pipeline"
+version = "0.1.0"
+edition = "2021"
+description = "TCP market-data ingestion and order book processing pipeline for Polyforge."
+
+[[bin]]
+name = "polyforge-pipeline"
+path = "src/main.rs"
+
+[dependencies]
+polyforge-core = { path = "../polyforge-core" }

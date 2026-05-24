@@ -1,0 +1,8 @@
+[package]
+name = "polyforge-core"
+version = "0.1.0"
+edition = "2021"
+description = "Core order book engine for the Polyforge trading platform — generic over price precision and exchange protocol."
+
+[dependencies]
+serde = { workspace = true }

@@ -1,0 +1,36 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch polyforge-server",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/polyforge-server",
+            "args": [],
+            "cwd": "${workspaceFolder}/polyforge-server",
+            "preLaunchTask": "build polyforge-server"
+        },
+        {
+            "name": "Run polyforge-client",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/polyforge-client",
+            "args": [],
+            "cwd": "${workspaceFolder}/polyforge-client",
+            "env": {
+                "RUST_LOG": "info",
+                "TRADING_ACCEPT_INVALID_CERTS": "true"
+            },
+            "preLaunchTask": "build polyforge-client"
+        },
+        {
+            "name": "Launch polyforge-pipeline",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/polyforge-pipeline",
+            "args": [],
+            "cwd": "${workspaceFolder}/polyforge-pipeline",
+            "preLaunchTask": "build polyforge-pipeline"
+        }
+    ]
+}
