@@ -2,6 +2,7 @@
 
 pub mod prelude;
 
+pub mod price_alert;
 pub mod user;
 pub mod user_login;
 pub mod users;

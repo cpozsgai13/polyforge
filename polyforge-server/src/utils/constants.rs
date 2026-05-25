@@ -13,6 +13,16 @@ lazy_static!{
     pub static ref MAX_FILE_SIZE: u64 = set_max_file_size();
     pub static ref TLS_CERT_PATH: String = set_cert_path();
     pub static ref TLS_KEY_PATH: String = set_key_path();
+    pub static ref LAST_PRICE_FILE: String =
+        env::var("LAST_PRICE_FILE").unwrap_or_else(|_| "last_price.csv".to_string());
+    /// Comma-separated list of crypto symbols to seed at startup via Binance.
+    /// E.g. `BTC-USD,ETH-USD,SOL-USD`
+    pub static ref CRYPTO_SYMBOLS: Vec<String> = env::var("CRYPTO_SYMBOLS")
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_uppercase())
+        .filter(|s| !s.is_empty())
+        .collect();
 }
 
 fn set_cert_path() -> String {

@@ -1,0 +1,131 @@
+.quote-card {
+  background: #1a1d23;
+  border: 1px solid #252a36;
+  border-top: 1px solid #3a5070;
+  border-left: 3px solid #3b6ea8;
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.quote-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.symbol {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #e8eaf0;
+  letter-spacing: 0.05em;
+}
+
+.market-state {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.state-regular { background: #1a3a2a; color: #4ade80; }
+.state-pre     { background: #2a2a1a; color: #facc15; }
+.state-post    { background: #2a1a2a; color: #c084fc; }
+.state-closed  { background: #2a2020; color: #224473; }
+
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+.loading-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #60a5fa;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.quote-card-live,
+.quote-card-book {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quote-card-book {
+  border-top: 1px solid #1e2330;
+  padding-top: 10px;
+}
+
+.book-header {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.refresh-btn {
+  background: none;
+  border: 1px solid #2e3340;
+  border-radius: 4px;
+  color: #64748b;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 1px 5px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.refresh-btn:hover:not(:disabled) {
+  color: #60a5fa;
+  border-color: #60a5fa;
+}
+.refresh-btn:disabled { opacity: 0.4; cursor: default; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.refresh-btn.spinning { animation: spin 0.6s linear infinite; }
+
+.live-row,
+.book-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.label {
+  font-size: 0.75rem;
+  color: #64748b;
+  min-width: 80px;
+}
+
+.value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e8eaf0;
+}
+
+.value.last  { color: #e8eaf0; font-size: 1.05rem; }
+.value.bid   { color: #4ade80; }
+.value.ask   { color: #f87171; }
+.value.empty { color: #475569; }
+
+.currency {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.spread .value {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}

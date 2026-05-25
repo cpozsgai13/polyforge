@@ -8,7 +8,14 @@
             "program": "${workspaceFolder}/target/debug/polyforge-server",
             "args": [],
             "cwd": "${workspaceFolder}/polyforge-server",
-            "preLaunchTask": "build polyforge-server"
+            "preLaunchTask": "build polyforge-server",
+            "env": {
+                "RUST_LOG": "info",
+                "TRADING_ACCEPT_INVALID_CERTS": "true",
+                "POLYFORGE_SERVER_PORT": "8080",
+                "POLYFORGE_SERVER_HOST": "localhost",
+                "envFile": "${workspaceFolder}/.env"
+            }
         },
         {
             "name": "Run polyforge-client",
@@ -19,7 +26,10 @@
             "cwd": "${workspaceFolder}/polyforge-client",
             "env": {
                 "RUST_LOG": "info",
-                "TRADING_ACCEPT_INVALID_CERTS": "true"
+                "TRADING_ACCEPT_INVALID_CERTS": "true",
+                "POLYFORGE_SERVER_PORT": "8080",
+                "POLYFORGE_SERVER_HOST": "localhost",
+                "envFile": "${workspaceFolder}/.env"
             },
             "preLaunchTask": "build polyforge-client"
         },
@@ -30,7 +40,24 @@
             "program": "${workspaceFolder}/target/debug/polyforge-pipeline",
             "args": [],
             "cwd": "${workspaceFolder}/polyforge-pipeline",
+            "env": {
+                "RUST_LOG": "info",
+                "TRADING_ACCEPT_INVALID_CERTS": "true",
+                "POLYFORGE_SERVER_PORT": "8080",
+                "POLYFORGE_SERVER_HOST": "localhost",
+                "envFile": "${workspaceFolder}/.env"
+            },
             "preLaunchTask": "build polyforge-pipeline"
+        },
+        {
+            "name": "Debug polyforge-web (Chrome)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:5173",
+            "webRoot": "${workspaceFolder}/polyforge-web/src",
+            "sourceMapPathOverrides": {
+                "webpack:///src/*": "${webRoot}/*"
+            }
         }
     ]
 }

@@ -28,6 +28,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+use dotenv::dotenv;
 
 use config::Config;
 use exchange_order_book::ExchangeOrderBook;
@@ -39,10 +40,22 @@ use ring_buffer::spsc_channel;
 const RING_BUFFER_SIZE: usize = 1 << 20;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load .env from current directory, then workspace root as a fallback.
+    dotenv().ok();
+    let workspace_env = Path::new(env!("CARGO_MANIFEST_DIR")).join("../.env");
+    let _ = dotenv::from_path(workspace_env);
+
     let args: Vec<String> = std::env::args().collect();
+    let env_cfg = std::env::var("POLYFORGE_PIPELINE_CONFIG").ok();
 
     if args.len() > 1 && args[1].ends_with(".ini") {
         run_network_mode(&args[1])?;
+    } else if args.len() == 1 {
+        if let Some(cfg_path) = env_cfg {
+            run_network_mode(&cfg_path)?;
+        } else {
+            run_file_mode(&args)?;
+        }
     } else {
         run_file_mode(&args)?;
     }

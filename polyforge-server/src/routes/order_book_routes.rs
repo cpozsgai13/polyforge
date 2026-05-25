@@ -8,6 +8,7 @@ pub fn config(config: &mut web::ServiceConfig) {
             .service(handlers::order_book_handler::modify_order)
             .service(handlers::order_book_handler::cancel_order)
             .service(handlers::order_book_handler::get_best_bid)
-            .service(handlers::order_book_handler::get_best_ask),
+            .service(handlers::order_book_handler::get_best_ask)
+            .service(handlers::order_book_handler::get_best_quote),
     );
 }

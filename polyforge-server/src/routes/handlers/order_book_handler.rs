@@ -4,13 +4,14 @@
 //! `AppState::order_books`.  A symbol is created on first use.
 //!
 //! # Endpoints
-//! | Method | Path                               | Description        |
-//! |--------|------------------------------------|--------------------|
-//! | POST   | /trading/{symbol}/add_order        | Add a new order    |
-//! | POST   | /trading/{symbol}/modify_order     | Modify an order    |
-//! | DELETE | /trading/{symbol}/cancel_order     | Cancel an order    |
-//! | GET    | /trading/{symbol}/best_bid         | Best bid quote     |
-//! | GET    | /trading/{symbol}/best_ask         | Best ask quote     |
+//! | Method | Path                               | Description           |
+//! |--------|------------------------------------|-----------------------|
+//! | POST   | /trading/{symbol}/add_order        | Add a new order       |
+//! | POST   | /trading/{symbol}/modify_order     | Modify an order       |
+//! | DELETE | /trading/{symbol}/cancel_order     | Cancel an order       |
+//! | GET    | /trading/{symbol}/best_bid         | Best bid quote        |
+//! | GET    | /trading/{symbol}/best_ask         | Best ask quote        |
+//! | GET    | /trading/{symbol}/best_quote       | Best bid + ask quote  |
 
 use actix_web::{delete, get, post, web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
@@ -98,6 +99,23 @@ pub struct QuoteResponse {
 pub struct AckResponse {
     pub success: bool,
     pub message: String,
+}
+
+/// A single side of a top-of-book quote (price + volume).
+#[derive(Debug, Serialize)]
+pub struct QuoteLevel {
+    pub price:  f64,
+    pub volume: u64,
+}
+
+/// Response for the combined best-bid-and-ask query.
+///
+/// Either side may be `null` when there are no resting orders on that side.
+#[derive(Debug, Serialize)]
+pub struct BestQuoteResponse {
+    pub symbol: String,
+    pub bid:    Option<QuoteLevel>,
+    pub ask:    Option<QuoteLevel>,
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -284,5 +302,57 @@ pub async fn get_best_ask(
                 volume: vol,
             }),
         },
+    }
+}
+
+/// `GET /trading/{symbol}/best_quote`
+///
+/// Returns the best bid and best ask for a symbol in a single response.
+/// Either side will be `null` when no resting orders exist on that side.
+/// Returns 404 when the symbol has never been seen by the server.
+#[get("/best_quote")]
+pub async fn get_best_quote(
+    symbol: web::Path<String>,
+    state: web::Data<AppState>,
+) -> impl Responder {
+    let books: std::sync::MutexGuard<std::collections::HashMap<String, OrderBook<Price>>> =
+        state.order_books.lock().unwrap();
+
+    match books.get(symbol.as_str()) {
+        None => HttpResponse::Ok().json(BestQuoteResponse {
+            symbol: symbol.clone(),
+            bid:    None,
+            ask:    None,
+        }),
+        Some(book) => {
+            let mut bid = book
+                .best_bid_with_volume()
+                .map(|(price, vol)| QuoteLevel { price: price.to_f64(), volume: vol });
+
+            let mut ask = book
+                .best_ask_with_volume()
+                .map(|(price, vol)| QuoteLevel { price: price.to_f64(), volume: vol });
+
+            // Fall back to the last live market price when one or both sides
+            // of the order book are empty.
+            if bid.is_none() || ask.is_none() {
+                if let Ok(prices) = state.market_prices.lock() {
+                    if let Some(mp) = prices.get(symbol.as_str()) {
+                        if bid.is_none() {
+                            bid = mp.bid.map(|p| QuoteLevel { price: p, volume: 0 });
+                        }
+                        if ask.is_none() {
+                            ask = mp.ask.map(|p| QuoteLevel { price: p, volume: 0 });
+                        }
+                    }
+                }
+            }
+
+            HttpResponse::Ok().json(BestQuoteResponse {
+                symbol: symbol.clone(),
+                bid,
+                ask,
+            })
+        }
     }
 }

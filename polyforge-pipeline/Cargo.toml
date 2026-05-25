@@ -10,3 +10,4 @@ path = "src/main.rs"
 
 [dependencies]
 polyforge-core = { path = "../polyforge-core" }
+dotenv = "0.15.0"

@@ -1,0 +1,182 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0f1117;
+  color: #e8eaf0;
+  font-family: system-ui, sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px;
+  background: #13161e;
+  border-bottom: 1px solid #1e2330;
+}
+
+.header-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.section-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #475569;
+  padding: 2px 12px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s;
+}
+.section-tab:hover { color: #94a3b8; }
+.section-tab.active { color: #60a5fa; border-bottom-color: #3b82f6; }
+
+.quote-source-sep {
+  color: #2e3340;
+  font-size: 0.75rem;
+  align-self: center;
+  padding: 0 4px;
+  user-select: none;
+}
+
+.quote-source-select {
+  background: transparent;
+  border: 1px solid #2e3340;
+  border-radius: 4px;
+  color: #475569;
+  font-size: 0.68rem;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  cursor: default;
+  outline: none;
+  align-self: center;
+  opacity: 1;
+}
+
+.app-logo {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #60a5fa;
+}
+
+.symbol-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #64748b;
+  padding: 4px 14px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover { color: #94a3b8; border-color: #2e3340; }
+.tab.active { color: #60a5fa; border-color: #3b82f6; background: #1e293b; }
+
+.tz-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-left: auto;
+  background: #0d1018;
+  border: 1px solid #1e2636;
+  border-radius: 8px;
+  padding: 7px 14px 8px;
+  box-shadow: 0 0 0 1px rgba(96,165,250,0.06), 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.tz-datetime {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.tz-date {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: #4a5568;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tz-clock {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.tz-select {
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: #3b82f6;
+  font-size: 0.67rem;
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0 2px;
+  margin-left: -2px;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.15s;
+  appearance: auto;
+}
+.tz-select:hover,
+.tz-select:focus { color: #93c5fd; }
+
+/* ── Main ───────────────────────────────────────────────────────────────── */
+.app-main {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.quotes-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.trading-panel {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
