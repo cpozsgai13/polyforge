@@ -5,6 +5,7 @@ use polyforge_core::order_book::OrderBook;
 use polyforge_core::messages::Price;
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
+use prometheus::{CounterVec, GaugeVec};
 
 use crate::quote_provider::QuoteProvider;
 
@@ -42,4 +43,16 @@ pub struct AppState {
     pub market_prices: Arc<Mutex<HashMap<String, MarketPrice>>>,
     /// Broadcast channel for fired price alerts — SSE subscribers receive events here.
     pub alert_tx: Arc<broadcast::Sender<AlertEvent>>,
+    /// Per-symbol request counter: labels are [symbol, operation].
+    pub symbol_requests:    Arc<CounterVec>,
+    /// Number of resting price levels per symbol+side.
+    pub order_book_depth:   Arc<GaugeVec>,
+    /// Bid-ask spread (best ask − best bid) per symbol.
+    pub order_book_spread:  Arc<GaugeVec>,
+    /// Total resting volume per symbol+side.
+    pub order_book_volume:  Arc<GaugeVec>,
+    /// Cumulative matched trades per symbol.
+    pub trades_total:       Arc<CounterVec>,
+    /// Failed live quote fetches per symbol.
+    pub quote_errors_total: Arc<CounterVec>,
 }

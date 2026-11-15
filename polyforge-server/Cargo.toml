@@ -16,12 +16,17 @@ tokio            = { workspace = true }
 thiserror        = { workspace = true }
 actix-web        = { version = "4", features = ["rustls-0_23"] }
 actix-files      = "0.6.6"
+actix-web-prom   = "0.9"
+prometheus       = "0.13"
 axum             = "0.7.4"
 chrono           = "0.4.37"
 config           = "0.15.13"
 dotenv           = "0.15.0"
-env_logger       = "0.11.3"
+env_logger       = "0.11.3"   # kept for transitive compat; logging via tracing
 log              = "0.4"
+tracing          = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "tracing-log"] }
+tracing-actix-web = "0.7"
 hyper            = "0.14"
 jsonwebtoken     = "9.3.0"
 lazy_static      = "1.4.0"

@@ -158,9 +158,24 @@ pub async fn add_order(
         .entry(symbol.clone())
         .or_insert_with(|| OrderBook::new(symbol.as_str()));
 
+    let trades_before = book.trades.len();
     let ok = book.add_order(order_ptr);
 
     if ok {
+        let new_trades = book.trades.len() - trades_before;
+        state.symbol_requests.with_label_values(&[&symbol, "add_order"]).inc();
+        if new_trades > 0 {
+            state.trades_total.with_label_values(&[&symbol]).inc_by(new_trades as f64);
+        }
+        tracing::info!(
+            symbol = %symbol,
+            order_id = body.order_id,
+            price = body.price,
+            quantity = body.quantity,
+            side = %body.side,
+            trades_executed = new_trades,
+            "order_added"
+        );
         HttpResponse::Ok().json(AckResponse {
             success: true,
             message: format!("Order {} added to book '{}'", body.order_id, symbol),
@@ -239,6 +254,8 @@ pub async fn cancel_order(
         Some(book) => {
             let ok = book.cancel_order(body.order_id);
             if ok {
+                state.symbol_requests.with_label_values(&[&symbol, "cancel_order"]).inc();
+                tracing::info!(symbol = %symbol, order_id = body.order_id, "order_cancelled");
                 HttpResponse::Ok().json(AckResponse {
                     success: true,
                     message: format!("Order {} cancelled in '{}'", body.order_id, symbol),
@@ -270,11 +287,14 @@ pub async fn get_best_bid(
                 success: true,
                 message: format!("No resting bids in '{}'", symbol),
             }),
-            Some((price, vol)) => HttpResponse::Ok().json(QuoteResponse {
-                symbol: symbol.clone(),
-                price:  price.to_f64(),
-                volume: vol,
-            }),
+            Some((price, vol)) => {
+                state.symbol_requests.with_label_values(&[&symbol, "best_bid"]).inc();
+                HttpResponse::Ok().json(QuoteResponse {
+                    symbol: symbol.clone(),
+                    price:  price.to_f64(),
+                    volume: vol,
+                })
+            }
         },
     }
 }
@@ -296,11 +316,14 @@ pub async fn get_best_ask(
                 success: true,
                 message: format!("No resting asks in '{}'", symbol),
             }),
-            Some((price, vol)) => HttpResponse::Ok().json(QuoteResponse {
-                symbol: symbol.clone(),
-                price:  price.to_f64(),
-                volume: vol,
-            }),
+            Some((price, vol)) => {
+                state.symbol_requests.with_label_values(&[&symbol, "best_ask"]).inc();
+                HttpResponse::Ok().json(QuoteResponse {
+                    symbol: symbol.clone(),
+                    price:  price.to_f64(),
+                    volume: vol,
+                })
+            }
         },
     }
 }
@@ -325,6 +348,8 @@ pub async fn get_best_quote(
             ask:    None,
         }),
         Some(book) => {
+            state.symbol_requests.with_label_values(&[&symbol, "best_quote"]).inc();
+            tracing::info!(symbol = %symbol, "best_quote_served");
             let mut bid = book
                 .best_bid_with_volume()
                 .map(|(price, vol)| QuoteLevel { price: price.to_f64(), volume: vol });

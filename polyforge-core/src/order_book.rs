@@ -210,6 +210,18 @@ where
         })
     }
 
+    /// Number of distinct bid price levels currently resting in the book.
+    pub fn bid_depth(&self) -> usize { self.bid_queue_map.len() }
+
+    /// Number of distinct ask price levels currently resting in the book.
+    pub fn ask_depth(&self) -> usize { self.ask_queue_map.len() }
+
+    /// Total resting bid volume across all price levels.
+    pub fn total_bid_volume(&self) -> Volume { self.bid_volume_map.values().sum() }
+
+    /// Total resting ask volume across all price levels.
+    pub fn total_ask_volume(&self) -> Volume { self.ask_volume_map.values().sum() }
+
     pub fn print(&self) {
         println!("{}", self);
     }

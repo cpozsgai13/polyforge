@@ -51,6 +51,8 @@ pub async fn get_live_quote(
 
     match state.quote_provider.fetch_quote(&sym).await {
         Ok(quote) => {
+            state.symbol_requests.with_label_values(&[&sym, "market_quote"]).inc();
+            tracing::info!(symbol = %sym, last_price = ?quote.last_price, "market_quote_fetched");
             // Update the in-memory market price so other handlers (e.g.
             // get_best_quote) can use it as a reference-price fallback.
             if let Ok(mut prices) = state.market_prices.lock() {
@@ -62,10 +64,14 @@ pub async fn get_live_quote(
             }
             HttpResponse::Ok().json(quote)
         }
-        Err(e) => HttpResponse::BadGateway().json(ErrorResponse {
-            success:  false,
-            message:  e.to_string(),
-            provider: state.quote_provider.provider_name().to_string(),
-        }),
+        Err(e) => {
+            state.quote_errors_total.with_label_values(&[&sym]).inc();
+            tracing::warn!(symbol = %sym, error = %e, "quote_fetch_failed");
+            HttpResponse::BadGateway().json(ErrorResponse {
+                success:  false,
+                message:  e.to_string(),
+                provider: state.quote_provider.provider_name().to_string(),
+            })
+        }
     }
 }

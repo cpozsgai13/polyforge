@@ -5,7 +5,9 @@ use polyforge_core::order_book::OrderBook;
 use polyforge_core::messages::Price;
 
 use std::{fs::File, io::{BufReader, Error, ErrorKind, Read}};
-use actix_web::{middleware::Logger, web, App, HttpServer};
+use actix_web::{web, App, HttpServer};
+use tracing_actix_web::TracingLogger;
+use actix_web_prom::PrometheusMetricsBuilder;
 use sea_orm::{ConnectOptions, Database, DbErr};
 use migration::MigratorTrait;
 use utils::app_state::AppState;
@@ -162,6 +164,7 @@ async fn save_last_prices(
     path: &Path,
     books: &Arc<Mutex<HashMap<String, OrderBook<Price>>>>,
     quote_provider: &Arc<dyn quote_provider::QuoteProvider>,
+    market_prices: &Arc<Mutex<HashMap<String, crate::utils::app_state::MarketPrice>>>,
 ) -> std::io::Result<()> {
     use std::io::Write;
 
@@ -186,8 +189,18 @@ async fn save_last_prices(
         let last_price = match quote_provider.fetch_quote(&symbol).await {
             Ok(q)  => q.last_price.unwrap_or(0.0),
             Err(e) => {
-                eprintln!("Warning: live quote for {symbol} unavailable at shutdown: {e}");
-                0.0
+                // Fall back to the most recent cached price for this symbol.
+                let cached = market_prices
+                    .lock()
+                    .ok()
+                    .and_then(|prices| prices.get(&symbol).and_then(|p| p.last_price))
+                    .unwrap_or(0.0);
+                if cached > 0.0 {
+                    eprintln!("Warning: live quote for {symbol} unavailable at shutdown ({e}); using cached last price {cached:.4}");
+                } else {
+                    eprintln!("Warning: live quote for {symbol} unavailable at shutdown ({e}); no cache available");
+                }
+                cached
             }
         };
         rows.push((symbol, last_price, bid, ask));
@@ -204,10 +217,17 @@ async fn save_last_prices(
 }
 
 fn start_key_listener(tx: oneshot::Sender<()>) {
+    use std::io::IsTerminal;
     std::thread::spawn(move || {
-        println!("Press Enter to shut down...");
-        let _ = std::io::stdin().read(&mut [0u8]).unwrap(); // Wait for any input
-        let _ = tx.send(());
+        if std::io::stdin().is_terminal() {
+            println!("Press Enter to shut down...");
+            let _ = std::io::stdin().read(&mut [0u8]);
+            let _ = tx.send(());
+        } else {
+            // Non-TTY (Docker, CI): keep tx alive so the server runs until
+            // the process receives SIGTERM / SIGKILL from the container runtime.
+            std::thread::park();
+        }
     });
 }
 
@@ -270,9 +290,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let workspace_env = Path::new(env!("CARGO_MANIFEST_DIR")).join("../.env");
     let _ = dotenv::from_path(&workspace_env);
 
-    env_logger::init_from_env(
-        env_logger::Env::default().default_filter_or("actix_web=info,polyforge_server=debug")
-    );
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(
+                    "actix_web=info,polyforge_server=info,tracing_actix_web=info"
+                ))
+        )
+        .init();
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");
@@ -415,7 +441,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .await
                 {
                     Ok(rows) => rows,
-                    Err(e) => { log::warn!("Alert checker DB error: {e}"); continue; }
+                    Err(e) => { tracing::warn!(error = %e, "alert_checker_db_error"); continue; }
                 };
 
                 if active.is_empty() { continue; }
@@ -440,10 +466,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
 
                     if fired {
-                        log::info!(
-                            "Alert {} fired: {} {} {:.4} (price={:.4})",
-                            alert.id, alert.symbol, alert.direction, alert.threshold, price
-                        );
+                        tracing::info!(alert_id = alert.id, symbol = %alert.symbol, direction = %alert.direction, threshold = alert.threshold, price, "alert_fired");
 
                         // Mark triggered in DB.
                         let fired_at = chrono::Utc::now().naive_utc();
@@ -451,7 +474,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         active_model.triggered    = Set(true);
                         active_model.triggered_at = Set(Some(fired_at));
                         if let Err(e) = active_model.update(&db_check).await {
-                            log::warn!("Could not mark alert {} triggered: {e}", alert.id);
+                            tracing::warn!(alert_id = alert.id, error = %e, "alert_mark_triggered_failed");
                         }
 
                         // Broadcast to SSE subscribers.
@@ -478,6 +501,96 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // shutdown handler share the same underlying Arc.
     let save_books    = order_books.clone();
     let save_provider = quote_provider.clone();
+    let save_prices   = market_prices.clone();
+
+    // Build a shared registry so both actix-web-prom and our custom counters
+    // are served from the same /metrics endpoint.
+    let registry = prometheus::Registry::new();
+
+    let symbol_requests = Arc::new(
+        prometheus::CounterVec::new(
+            prometheus::opts!(
+                "polyforge_symbol_requests_total",
+                "Request count broken down by symbol and operation"
+            ),
+            &["symbol", "operation"],
+        ).expect("Failed to create symbol_requests")
+    );
+    registry.register(Box::new((*symbol_requests).clone())).unwrap();
+
+    let order_book_depth = Arc::new(
+        prometheus::GaugeVec::new(
+            prometheus::opts!("polyforge_order_book_depth",
+                "Number of distinct resting price levels"),
+            &["symbol", "side"],
+        ).expect("Failed to create order_book_depth")
+    );
+    registry.register(Box::new((*order_book_depth).clone())).unwrap();
+
+    let order_book_spread = Arc::new(
+        prometheus::GaugeVec::new(
+            prometheus::opts!("polyforge_order_book_spread",
+                "Bid-ask spread: best ask minus best bid"),
+            &["symbol"],
+        ).expect("Failed to create order_book_spread")
+    );
+    registry.register(Box::new((*order_book_spread).clone())).unwrap();
+
+    let order_book_volume = Arc::new(
+        prometheus::GaugeVec::new(
+            prometheus::opts!("polyforge_order_book_volume",
+                "Total resting volume per side"),
+            &["symbol", "side"],
+        ).expect("Failed to create order_book_volume")
+    );
+    registry.register(Box::new((*order_book_volume).clone())).unwrap();
+
+    let trades_total = Arc::new(
+        prometheus::CounterVec::new(
+            prometheus::opts!("polyforge_trades_total",
+                "Cumulative matched trades per symbol"),
+            &["symbol"],
+        ).expect("Failed to create trades_total")
+    );
+    registry.register(Box::new((*trades_total).clone())).unwrap();
+
+    let quote_errors_total = Arc::new(
+        prometheus::CounterVec::new(
+            prometheus::opts!("polyforge_quote_errors_total",
+                "Failed live quote fetches per symbol"),
+            &["symbol"],
+        ).expect("Failed to create quote_errors_total")
+    );
+    registry.register(Box::new((*quote_errors_total).clone())).unwrap();
+
+    let prometheus = PrometheusMetricsBuilder::new("polyforge")
+        .endpoint("/metrics")
+        .registry(registry)
+        .build()
+        .expect("Failed to build Prometheus metrics middleware");
+
+    // ── Background: refresh order-book state gauges every 10 s ──────────────
+    {
+        let books_bg  = order_books.clone();
+        let depth_bg  = order_book_depth.clone();
+        let spread_bg = order_book_spread.clone();
+        let volume_bg = order_book_volume.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+                let books = books_bg.lock().unwrap();
+                for (symbol, book) in books.iter() {
+                    depth_bg.with_label_values(&[symbol, "bid"]).set(book.bid_depth() as f64);
+                    depth_bg.with_label_values(&[symbol, "ask"]).set(book.ask_depth() as f64);
+                    volume_bg.with_label_values(&[symbol, "bid"]).set(book.total_bid_volume() as f64);
+                    volume_bg.with_label_values(&[symbol, "ask"]).set(book.total_ask_volume() as f64);
+                    if let (Some(bid), Some(ask)) = (book.best_bid(), book.best_ask()) {
+                        spread_bg.with_label_values(&[symbol]).set(ask.to_f64() - bid.to_f64());
+                    }
+                }
+            }
+        });
+    }
 
     let server = HttpServer::new(move || {
         App::new()
@@ -487,8 +600,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 quote_provider: quote_provider.clone(),
                 market_prices: market_prices.clone(),
                 alert_tx: alert_tx.clone(),
+                symbol_requests:    symbol_requests.clone(),
+                order_book_depth:   order_book_depth.clone(),
+                order_book_spread:  order_book_spread.clone(),
+                order_book_volume:  order_book_volume.clone(),
+                trades_total:       trades_total.clone(),
+                quote_errors_total: quote_errors_total.clone(),
             }))
-            .wrap(Logger::default())
+            .wrap(prometheus.clone())
+            .wrap(TracingLogger::default())
             .configure(routes::home_routes::config)
             .configure(routes::order_book_routes::config)
             .configure(routes::market_routes::config)
@@ -501,7 +621,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(async move {
         rx.await.ok();
         println!("Shutting down — saving last prices...");
-        if let Err(e) = save_last_prices(&last_price_path_owned, &save_books, &save_provider).await {
+        if let Err(e) = save_last_prices(&last_price_path_owned, &save_books, &save_provider, &save_prices).await {
             eprintln!("Warning: failed to save last prices: {e}");
         }
         shutdown.stop(true).await;
