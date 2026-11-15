@@ -1,4 +1,19 @@
-# React + TypeScript + Vite
+# polyforge-web
+
+React 19 + TypeScript + Vite UI for the Polyforge server.
+
+## Build / run
+```sh
+npm install
+npm run dev      # http://localhost:5173, proxies to https://localhost:8443
+npm run build    # type-check + production build
+npm run lint
+```
+Start `polyforge-server` with `PORT=8443` first. Symbols come from `VITE_SYMBOLS`.
+
+---
+
+# React + TypeScript + Vite (template notes)
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
